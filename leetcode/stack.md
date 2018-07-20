@@ -1,3 +1,19 @@
+
+### 测试实例
+~~~go
+	s := stack.NewStack()
+	s.Push(1)
+	s.Push(3)
+	s.Push(5)
+	fmt.Println(s)
+	a := s.Pop()
+	fmt.Println(a)
+	fmt.Println(s)
+
+~~~
+
+
+### 源码
 ~~~ go
 
 package stack
