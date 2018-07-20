@@ -1,6 +1,8 @@
+
+### 测试实例
 ~~~go
-//测试实例
-fmt.Println("queue....")
+
+	fmt.Println("queue....")
 	q := queue.NewQueue()
 	q.Push(5)
 	q.Push(6)
@@ -12,6 +14,7 @@ fmt.Println("queue....")
 	one := q.Peek()
 ~~~
 
+### 源码
 ~~~ go
 package queue
 
