@@ -1,76 +1,84 @@
+
+### 测试
+
+~~~ go
+	fmt.Println("list ....")
+	l := list.NewList()
+
+	l.Prepend(list.NewNode(1))
+	l.Prepend(list.NewNode(2))
+	l.Prepend(list.NewNode(3))
+
+	fmt.Println(l)
+
+	v, _ := l.Get(0)
+	fmt.Println((v.Value))
+	//l.Clear()
+	n := list.NewNode(1)
+	idx, _ := l.Find(n)
+	fmt.Println(idx)
+~~~
+
 ### 链表
 
 ~~~ go
-/*
+package stack
 
-双向链表
- * 单向链表只可向一个方向遍历，一般查找一个结点的时候需要从第一个结点开始每次访问下一个结点，一直访问到需要的位置。
- * 双向链表的每个结点都有指向的前一个结点和后一个节点，既有链表表头又有表尾，即可从链头向链尾遍历，又可从链尾向链头遍历。
-*/
+import "sync"
 
-package list
-
-type List struct {
-	Length int
-	Head   *Node
-	Tail   *Node
+type Stack struct {
+	stack []interface{}
+	len   int
+	lock  *sync.Mutex
 }
 
-func NewList() *List {
+func NewStack() *Stack {
 
-	l := new(List)
-	l.Length = 0
-	return l
-}
-
-type Node struct {
-	Value interface{}
-	Prev  *Node
-	Next  *Node
-}
-
-func (l *List) Len() int {
-	return l.Length
-}
-
-func (l *List) IsEmpty() bool {
-	return l.Length == 0
-}
-func (l *List) Prepend(value interface{}) {
-	node := NewNode(value)
-	if l.Len() == 0 {
-		l.Head = node
-		l.Tail = l.Head
-	} else {
-		formerHead := l.Head
-		formerHead.Prev = node
-
-		node.Next = formerHead
-		l.Head = node
+	return &Stack{
+		stack: make([]interface{}, 0),
+		len:   0,
+		lock:  new(sync.Mutex),
 	}
-
-	l.Length++
 }
 
-func (l *List) Append(value interface{}) {
-	node := NewNode(value)
-
-	if l.Len() == 0 {
-		l.Head = node
-		l.Tail = l.Head
-	} else {
-		formerTail := l.Tail
-		formerTail.Next = node
-
-		node.Prev = formerTail
-		l.Tail = node
-	}
-
-	l.Length++
+func (s *Stack) Len() int {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.len
 }
-func NewNode(v interface{}) *Node {
-	return &Node{Value: v}
+func (s *Stack) IsEmpty() bool {
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.len == 0
 }
+
+func (s *Stack) Pop() (el interface{}) {
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	el, s.stack = s.stack[0], s.stack[1:]
+	s.len--
+	return el
+}
+
+func (s *Stack) Push(el interface{}) {
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	new := make([]interface{}, 1)
+	new[0] = el
+	s.stack = append(new, s.stack...) //参数为两个slice时，不要忘记...
+	//s.stack = append(s.stack, el)
+
+	s.len++
+}
+func (s *Stack) Peek() interface{} {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	return s.stack[0]
+}
+
 
 
 ~~~
