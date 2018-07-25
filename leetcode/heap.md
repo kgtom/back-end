@@ -2,7 +2,7 @@
 
 ~~~go
 
- fmt.Println("heap ....")
+ 	fmt.Println("heap ....")
 	h := heap.NewMaxHeap()
 
 	h.Insert(heap.Int(8))
