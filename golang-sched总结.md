@@ -18,7 +18,7 @@
 |M:N|	多个用户空间线程会运行在多个OS线程上|上下文切换很迅速也能利用多核系统的优势，但调度器很复杂
 
  Go通过使用M:N模型综合前两种模型的优点。它会在多个OS线程上调度多个goroutines。
- ![Sched](/content/images/2018/08/Sched.png)
+ ![sched](https://github.com/kgtom/back-end/blob/master/pic/sched.png)
  
  [点击查看图解](https://github.com/kgtom/go-notes/blob/master/runtime2.md)
  
@@ -26,7 +26,7 @@
   goroutine就是Go语言提供的一种用户态线程，当我们创建了很多的goroutine，并且它们都是跑在M 内核线程之上的时候，至于在一个M上跑，还是多个M上跑，需要一个调度器来维护这些goroutine，确保所有的goroutine都最大化的使用cpu资源。
   
 ### 3.一图胜千言
-![goroutine](/content/images/2018/07/goroutine.jpg)
+![goroutine](https://github.com/kgtom/back-end/blob/master/pic/goroutine.jpg)
 * 地鼠(gopher)用小车运着一堆待加工的砖。M就可以看作图中的地鼠，P就是小车，G就是小车里装的砖。如果G 太多了，需要创建更多个M 去干活。没有P，M是不能运砖的。一个M坏了，runtime 将G 放到仓库中(全局队列中),再找新的M去运砖。
 * 另外此图说明了[并发与并行的区别](http://www.aqee.net/docs/Concurrency-is-not-Parallelism/#slide-1)，如果只有一堆砖块，几个小地鼠有并发的去运输，并发分四个阶段：装、运输、卸载、送空车。图中两堆砖块，两个工作流程，说明并行去做。
         *  并发：同时(同一时间间隔)处理很多事情，交替做，重点组合。拿庆丰买包子为例，点餐、取餐分开执行，另一个例子：鼠标、键盘、显示器、硬盘同时工作。
