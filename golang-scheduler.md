@@ -110,6 +110,31 @@ if gp == nil {
 
 ~~~
 
+
+
+### 上下文切换
+
+* 保存现场：G不在占用cpu时间片运行的时候(gopark/gosched)，将相关寄存器的值给保存到内存中；
+`源码地址：src/runtime/proc.go Gosched()  265行`
+~~~go
+func Gosched() {
+	checkTimeouts()
+	mcall(gosched_m)
+}
+~~~
+
+`源码地址：src/runtime/proc.go gopark()  285行`
+~~~go
+gopark(){
+	// can't do anything that might move the G between Ms here.
+	mcall(park_m)
+}
+~~~
+* 恢复现场:在G重新获得cpu时间片的时候(execute)，需要从内存把之前的寄存器信息全部放回到相应寄存器中去。
+
+
+
+
 [详情点击这里查看](https://github.com/kgtom/go-notes/blob/master/runtime.md)
 
 
