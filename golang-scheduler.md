@@ -37,6 +37,33 @@
 ## <span id="3">三、go 调度器源码解</span>
 
 
+### go scheduler 
+`源码文件地址：/src/runtime/proc.go:15行`
+~~~
+ The scheduler's job is to distribute ready-to-run goroutines over worker threads.  
+//调度器任务：将goroutne 分配到可用的工作线程上。
+ The main concepts are:  
+ G - goroutine.  
+ M - worker thread, or machine.  
+ P - processor, a resource that is required to execute Go code.  
+M must have an associated P to execute Go code, however it can be blocked or in a syscall w/o an associated P.
+//M 必须关联一个P才能执行go代码。
+~~~
+
+### bootstrap 启动顺序
+~~~
+
+// The bootstrap sequence is:  
+//  
+// call osinit  //os初始化
+// call schedinit  //调度器初始化
+// make & queue new G  //生成G，放到G队列，等待运行
+// call runtime·mstart //调用mstart方法，启动M
+~~~
+1.  osinit ：ncpu的数量也就是P最大数量，也就是可运行G的队列的数量，实际上对并发运行G规模的一种限制。
+2.  schedinit ：M最大数量初始设置1000，从环境变量GOMAXPROCS中获取P
+3. make & queue new G 即：runtime·newproc ：生成g，放到队列中，等待运行
+4. runtime·mstart ：启动M
 
 [详情点击这里查看](https://github.com/kgtom/go-notes/blob/master/runtime.md)
 
