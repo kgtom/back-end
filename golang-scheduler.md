@@ -50,6 +50,7 @@ M must have an associated P to execute Go code, however it can be blocked or in 
 //M 必须关联一个P才能执行go代码。
 ~~~
 
+
 ### bootstrap 启动顺序
 ~~~
 
@@ -62,8 +63,52 @@ M must have an associated P to execute Go code, however it can be blocked or in 
 ~~~
 1.  osinit ：ncpu的数量也就是P最大数量，也就是可运行G的队列的数量，实际上对并发运行G规模的一种限制。
 2.  schedinit ：M最大数量初始设置1000，从环境变量GOMAXPROCS中获取P
-3. make & queue new G 即：runtime·newproc ：生成g，放到队列中，等待运行
-4. runtime·mstart ：启动M
+3. make & queue new G 即：runtime·newproc ：生成G，放到队列中，等待运行
+4. runtime·mstart ：生成G之后就需要启动M,并且将P关联到M上，没有P，M也无法启动，关联上P之后进入schedule（）开始干活。
+
+`源码地址：src/runtime/proc.go中 mstart1() 1289行`
+~~~go
+    else if _g_.m != &m0 {
+		acquirep(_g_.m.nextp.ptr())
+		_g_.m.nextp = 0
+	}
+	schedule()
+~~~
+
+`源码地址：src/runtime/proc.go schedule()  2557行`
+
+~~~go
+if gp == nil {
+	//从全局可运行G队列查找G
+		if _g_.m.p.ptr().schedtick%61 == 0 && sched.runqsize > 0 {
+			lock(&sched.lock)
+			gp = globrunqget(_g_.m.p.ptr(), 1)
+			unlock(&sched.lock)
+		}
+	}
+	if gp == nil {
+    //从本地P可运行G队列找G并判断是否是自旋状态
+		gp, inheritTime = runqget(_g_.m.p.ptr())
+		if gp != nil && _g_.m.spinning {
+			throw("schedule: spinning with local work")
+		}
+	}
+	if gp == nil {
+    //从调度器的可运行G队列中查找G
+		gp, inheritTime = findrunnable() // blocks until work is available
+	}
+
+	// This thread is going to run a goroutine and is not spinning anymore,
+	// so if it was marked as spinning we need to reset it now and potentially
+	// start a new spinning M.
+    //重置自旋状态，然后启动M
+	if _g_.m.spinning {
+		resetspinning()
+	}
+  //G 开始运行了
+	execute(gp, inheritTime)
+
+~~~
 
 [详情点击这里查看](https://github.com/kgtom/go-notes/blob/master/runtime.md)
 
