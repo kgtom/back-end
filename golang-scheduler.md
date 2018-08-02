@@ -25,6 +25,7 @@
 ### 2.goroutine用户态线程
    * goroutine就是Go语言提供的一种用户态线程，当我们创建了很多的goroutine，并且它们都是跑在M 内核线程之上的时候，至于在一个M上跑，还是多个M上跑，需要一个调度器来维护这些goroutine，确保所有的goroutine都最大化的使用cpu资源。
   * 当一个goroutine堵塞时，所在线程会堵塞，但其他goroutine不会堵塞，会被调度器转移到其他P上。
+  * goroutine：让研发人员更加专注于业务逻辑，从os层面的逻辑抽离出来。
   
 ### 3.一图胜千言
 ![goroutine](https://github.com/kgtom/back-end/blob/master/pic/goroutine.jpg)
