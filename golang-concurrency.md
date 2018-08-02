@@ -1,12 +1,12 @@
 ## 学习大纲
-* [一、理解并发与并行](#1)
-* [二、go并发编程(goroutine、channel、select)](#2)
-* [三、小结](#3)
+[一、理解并发与并行](#1)
+[二、go并发编程(goroutine、channel、select)](#2)
+[三、小结](#3)
 
 
-## 一、理解并发与并行
+## <span id="1">一、理解并发与并行</span>
 
-   并发编程的思想来自于多任务操作系统，允许终端用户同时运行多个程序。当一个线程不需要cup时，系统内核会把该线程挂起或者中断，让其它线程使用cpu。
+  并发编程的思想来自于多任务操作系统，允许终端用户同时运行多个程序。当一个线程不需要cup时，系统内核会把该线程挂起或者中断，让其它线程使用cpu。
  
 
 并发是指两个或两个以上操作同时存在。(交替做事，如果是单核，两个或多个线程交替被cpu执行)
@@ -16,7 +16,7 @@
 
 并行是并发的一个子集。
  
-## 二、go并发编程
+## <span id="2">二、go并发编程</span>
   
 ### 1.Goroutine
 
@@ -148,7 +148,7 @@ ch := make(chanint, 3)
  ~~~
  
 ### 3.Select:
-Select 语句是一种用于通道发送和接受操作的专用语句。
+* Select 语句是一种用于通道发送和接受操作的专用语句。
 
 ~~~go 
 package main
@@ -219,15 +219,60 @@ func main() {
 }
  ~~~
  
-* 如果有同时多个case接收数据,那么Go会伪随机的选择一个case处理(pseudo-random)。
-* 如果没有case需要处理，则会选择default去处理。
-* 如果没有default case，且有发送的chan 则select语句会阻塞，直到某个case需要处理。
+1.  如果有同时多个case接收数据,那么Go会伪随机的选择一个case处理(pseudo-random)。
+2.  如果没有case需要处理，则会选择default去处理。
+3.  如果没有default case，且有发送的chan 则select语句会阻塞，直到某个case需要处理。
+
+* 空select 堵塞
+
+~~~go
+package main
+
+import (
+	"fmt"
+)
+
+func main() {
+
+	go func() {
+		fmt.Println("go ")
+	}()
+
+	select {} // 阻塞
+	fmt.Println("end")
+}
+
+~~~
+
+* select 超时处理
+
+~~~go
+package main
+
+import (
+	"fmt"
+	"time"
+)
+
+func main() {
+	c := make(chan string) //或者某个方法请求超时，在没有context包时经常这么使用
+	timeout := time.After(3 * time.Second)
+	for {
+		select {
+		case s := <-c:
+			fmt.Println(s)
+		case <-timeout:
+			fmt.Println("time out")
+			return
+		}
+	}
+}
+~~~
  
- 
-## 小结：
+## <span id="3">小结：</span>
 * Goroutine: 让研发人员更加专注于业务逻辑，从os层面的逻辑抽离出来。
 * Channel:简单、安全、高效的实现了多个goroutine之间的同步与信息传递。
-* Select:可以处理多个channel。
+* Select:可以处理多个channel、堵塞主线程、超时处理
 
 > Reference
 《郝大神go并发编程》
