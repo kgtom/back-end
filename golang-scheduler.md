@@ -1,7 +1,7 @@
 ## 学习大纲
-1. [一、os有调度器，为什么go 需要自己的调度器](#1)
-2. [二、go调度器如何工作](#2) 
-3. [三、go 调度器源码解析](#3) 
+* [一、os有调度器，为什么go 需要自己的调度器](#1)
+* [二、go调度器如何工作](#2) 
+* [三、go 调度器源码解析](#3) 
 
 
 ## <span id="1">一、os有调度器，为什么go 需要自己的调度器</span>
@@ -18,7 +18,18 @@
 |M:N|	多个用户空间线程会运行在多个OS线程上|上下文切换很迅速也能利用多核系统的优势，但调度器很复杂
 
  Go通过使用M:N模型综合前两种模型的优点。它会在多个OS线程上调度多个goroutines。
+ 
+ 
+ ### 1.三者关系
  ![sched](https://github.com/kgtom/back-end/blob/master/pic/sched.png)
+ 
+ 
+ ### 2.G状态变化
+ ![G_state](https://github.com/kgtom/back-end/blob/master/pic/G_state.jpg)
+
+ ### 3.P状态变化
+![P_state](https://github.com/kgtom/back-end/blob/master/pic/P_state.jpg)
+ [点击查看图解](https://github.com/kgtom/go-notes/blob/master/runtime2.md)
  
  [点击查看图解](https://github.com/kgtom/go-notes/blob/master/runtime2.md)
  
@@ -146,3 +157,4 @@ gopark(){
 * [aqee-Concurrency](http://www.aqee.net/docs/Concurrency-is-not-Parallelism/#slide-19)
 * [github-runtime](https://github.com/kgtom/go-notes/blob/master/runtime.md)
 * [github-runtime2](https://github.com/kgtom/go-notes/blob/master/runtime2.md)
+* [github-GoHackers](https://github.com/GoHackers/talks/blob/master/20150110/3.Go%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B-%E9%83%9D%E6%9E%97.pdf)
