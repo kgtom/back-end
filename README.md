@@ -1,7 +1,9 @@
 
 
 <h2 id="概况">概况</h2>
-<p>记录后端研发必备知识点。</p>
+<p>记录后端研发必备知识点。</p> 
+
+## 通用知识
 
 -   [x] 算法
 -   [x] 数据结构(堆栈、队列、树)
@@ -16,3 +18,7 @@
 -   [x] Redis
 -   [ ]  MySQL
 
+## Golang 知识
+
+-   [x] Golang-concurrency
+-   [x] Golang-scheduler
