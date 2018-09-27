@@ -1,14 +1,18 @@
 ## 学习大纲
 * [一、高并发背景](#1)
-* [二、解决方案1--简单粗博法](#2)
+* [二、解决方案1--简单粗暴法](#2)
 * [三、解决方案2--相对优雅法](#3)
 * [四、解决方案3--真正有控制力法(工作池)](#4)
 * [五、总结](#5)
 
 ## <span id="1">一、高并发背景</span>
-
+  有大流量场景下，服务端一些耗时任务，例如定时批量同步用户信息、报表生成、通知类信息，这时候我们可以异步进行处理。具体有以下三种方式：
 
 ## <span id="2">二、解决方案1--简单粗暴法</span>
+### 1.分析
+简单粗暴，但无法控制创建goroutine数量，数量多了，内存也会暴涨，调度也会增多，从而影响性能。
+所以我们需要把控以下 开启goroutine数量。继续看方案2
+### 2.代码演示
 ~~~go
 package main
 
@@ -20,11 +24,11 @@ type Job struct {
 	Name string
 }
 
-var jobChan = make(chan string)
+var quit = make(chan string)
 
 func (j *Job) Handle() {
-	fmt.Println("正在处理..." + j.Name)
-	jobChan <- j.Name
+	fmt.Println("正在处理:" + j.Name)
+	quit <- j.Name
 }
 
 func main() {
@@ -38,36 +42,55 @@ func main() {
 	//接收请求
 	for _, name := range req {
 		job := &Job{Name: name}
+		//直接开启
 		go job.Handle()
 
 	}
+	//time.Sleep(time.Second) 为了看到效果，也可以使用 quit chan
 
 	for range req {
-		fmt.Println(<-jobChan)
+		fmt.Println("完成处理:", <-quit)
 	}
 	fmt.Printf("main end")
 
 }
 
+
 ~~~
 
 ## <span id="2">三、解决方案1--相对优雅法</span>
+
+### 1.分析
+ 使用了缓冲队列一定程度上了提高了并发，但也是治标不治本，大规模并发只是推迟了问题的发生时间。当请求速度远大于队列的处理速度时，缓冲区很快被打满，后面的请求一样被堵塞了。
+### 2.代码演示
+#### demo1:使用sync.WaitGroup等待每一个worker都处理完成，再退出主goroutine。
 ~~~go
 package main
 
 import (
 	"fmt"
+	"sync"
 )
 
 type Job struct {
 	Name string
 }
 
-var jobChan = make(chan *Job, 10)
-var quit = make(chan string)
+//限制同时工作的job数量(即请求数量) 1000
+var jobChan = make(chan Job, 1000)
 
-func (j *Job) Handle() {
-	fmt.Println("正在处理..." + j.Name)
+//若要等待Worker处理完成，我们就要使用sync.WaitGroup
+var wg sync.WaitGroup
+
+//从job 队列中获取一个job来处理
+func Worker(jobChan <-chan Job) {
+	defer wg.Done()
+	for job := range jobChan {
+
+		//handel()
+		fmt.Println("正在处理：", job.Name)
+
+	}
 
 }
 
@@ -79,37 +102,113 @@ func main() {
 		"c",
 	}
 
-	//接收请求，发送给Job进行处理
+	//接收请求
 	for _, name := range req {
-		job := &Job{Name: name}
+		job := Job{Name: name}
 		jobChan <- job
+
+		go Worker(jobChan)
+		wg.Add(1)
+
 	}
+	close(jobChan) //如果注释掉，发生deadlock，因为for range 一直在接收。
+	wg.Wait()
 
-	//开启goroutine处理传过来的请求
-	go func() {
-		for {
-			select {
-			case job := <-jobChan:
-				fmt.Println("接收到job...")
-				job.Handle()
-
-			case q := <-quit:
-				fmt.Println("end", q)
-				return
-
-			}
-		}
-	}()
-
-	quit <- "全部处理完成"
 	fmt.Printf("main end")
+
 }
 
 ~~~
+
+#### demo2:不保证每一个worker都执行完成，使用sync.WaitGroup超时处理
+
+如果不想要一直等sync.WaitGroup的完成，即不想等着每一个worker处理完成，可以设置一个超时时间，我们可以使用select实现。
+如果 wg 先返回，那么close(ch)执行后，case<- ch:有效就会执行,返回true，否则执行超时分支，返回false。 
+
+~~~go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+type Job struct {
+	Name string
+}
+
+//限制同时工作的job数量(即请求数量) 1000
+var jobChan = make(chan Job, 1000)
+
+//若要等待Worker处理完成，我们就要使用sync.WaitGroup
+var wg sync.WaitGroup
+
+//从job 队列中获取一个job来处理
+func Worker(jobChan <-chan Job) {
+	defer wg.Done()
+	for job := range jobChan {
+		time.Sleep(time.Second * 1) //模拟业务处理1s
+		//handel()
+		fmt.Println("正在处理：", job.Name)
+
+	}
+
+}
+
+func main() {
+
+	req := [3]string{
+		"a",
+		"b",
+		"c",
+	}
+
+	//接收请求
+	for _, name := range req {
+		job := Job{Name: name}
+		jobChan <- job
+
+		go Worker(jobChan)
+		wg.Add(1)
+
+	}
+	close(jobChan) //如果注释掉，发生deadlock，因为for range 一直在接收。
+
+	//wg.Wait()
+
+	//设置3s超时时间，设置模拟业务5s,case 会走超时分支，提前结束wg
+	//r := WaitTimeout(&wg, 2*time.Second)
+
+	//设置3s超时时间，设置模拟业务1s,case 会走ch分支，正常结束wg
+	r := WaitTimeout(&wg, 6*time.Second)
+	fmt.Println("r:", r)
+	fmt.Printf("main end")
+
+}
+
+func WaitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	ch := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(ch)
+	}()
+	select {
+	case <-ch:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+~~~
+#### demo3 使用context，停止worker工作，不再执行
+~~~go
+
+~~~
+
 ## <span id="3">四、真正有控制力法(工作池)</span>
- ~~~go
- 
- ~~~
+
 
 >reference
 * [百万实践](https://blog.csdn.net/Jeanphorn/article/details/79018205)
