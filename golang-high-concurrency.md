@@ -63,7 +63,7 @@ func main() {
 ### 1.分析
  使用了缓冲队列一定程度上了提高了并发，但也是治标不治本，大规模并发只是推迟了问题的发生时间。当请求速度远大于队列的处理速度时，缓冲区很快被打满，后面的请求一样被堵塞了。
 ### 2.代码演示
-#### demo1:使用sync.WaitGroup等待每一个worker都处理完成，再退出主goroutine。
+#### demo1:使用sync.WaitGroup保证每一个worker都处理完成，再退出主goroutine。
 ~~~go
 package main
 
@@ -111,7 +111,7 @@ func main() {
 		wg.Add(1)
 
 	}
-	close(jobChan) //如果注释掉，发生deadlock，因为for range 一直在接收。
+	close(jobChan) //关闭chan,优雅方式通知worker不需要再进行工作了。如果注释掉，发生deadlock，因为for range 一直在接收。
 	wg.Wait()
 
 	fmt.Printf("main end")
@@ -120,7 +120,117 @@ func main() {
 
 ~~~
 
-#### demo2:不保证每一个worker都执行完成，使用sync.WaitGroup超时处理
+或者 将main()使用下面代码,开启一个goroutine：
+~~~go
+
+func main() {
+
+	req := [3]string{
+		"a",
+		"b",
+		"c",
+	}
+
+	//接收请求
+	for _, name := range req {
+		job := Job{Name: name}
+		//入队
+		jobChan <- job
+
+	}
+
+	wg.Add(1)
+	go Worker(jobChan)
+
+	close(jobChan) //去掉注释，导致deadlock。因为range 一直在读。
+
+	wg.Wait()
+
+	fmt.Printf("main end")
+
+}
+
+~~~
+
+#### demo2:缓冲区慢了，提示给调用方(判断队列是否慢：即限流目的)
+~~~go
+package main
+
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+type Job struct {
+	Name string
+}
+
+//限制同时工作的job数量(即请求数量) 1000
+var jobChan = make(chan Job, 5)
+
+//若要等待Worker处理完成，我们就要使用sync.WaitGroup
+var wg sync.WaitGroup
+
+//从job 队列中获取一个job来处理
+func Worker(jobChan <-chan Job) {
+	defer wg.Done()
+	for job := range jobChan {
+		time.Sleep(time.Second * 1) //模拟业务处理1s
+		//handel()
+		fmt.Println("正在处理：", job.Name)
+
+	}
+
+}
+
+func main() {
+
+	req := [3]string{
+		"a",
+		"b",
+		"c",
+	}
+
+	//接收请求
+	for _, name := range req {
+		job := Job{Name: name}
+
+		//入队
+		//jobChan <- job 这种方式如果缓冲区慢了，就堵塞与此，使用IsEnqueue 若返回false提示给调用方。
+
+		r := IsEnqueue(job, jobChan)
+		if !r {
+			fmt.Println("IsEnqueue:", r)
+			return
+		}
+
+		go Worker(jobChan)
+		wg.Add(1)
+
+	}
+	close(jobChan) //关闭chan,如果注释掉，发生deadlock，因为for range 一直在接收。
+
+	wg.Wait()
+
+	fmt.Printf("main end")
+
+}
+
+//如果缓冲区慢了，告知调用方(实质：如地铁限流目的相同,实现非阻塞的生产者模式)
+func IsEnqueue(job Job, jobChan chan Job) bool {
+	select {
+	case jobChan <- job:
+		return true
+	default:
+		return false
+	}
+}
+
+
+~~~
+
+#### demo3:防止协程假死（不保证每一个worker都执行完成），使用sync.WaitGroup超时处理
 
 如果不想要一直等sync.WaitGroup的完成，即不想等着每一个worker处理完成，可以设置一个超时时间，我们可以使用select实现。
 如果 wg 先返回，那么close(ch)执行后，case<- ch:有效就会执行,返回true，否则执行超时分支，返回false。 
@@ -182,7 +292,11 @@ func main() {
 
 	//设置3s超时时间，设置模拟业务1s,case 会走ch分支，正常结束wg
 	r := WaitTimeout(&wg, 6*time.Second)
-	fmt.Println("r:", r)
+	if r {
+        fmt.Println("执行worker完成退出")
+    } else {
+        fmt.Println("执行worker超时退出")
+    }
 	fmt.Printf("main end")
 
 }
@@ -202,14 +316,146 @@ func WaitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 }
 
 ~~~
-#### demo3 使用context，停止worker工作，不再执行
+#### demo4 使用context，停止worker工作，不再继续执行
 ~~~go
+package main
+
+import (
+	"context"
+	"fmt"
+	"sync"
+	"time"
+)
+
+type Job struct {
+	Name string
+}
+
+//限制同时工作的job数量(即请求数量) 1000
+var jobChan = make(chan Job, 1000)
+
+//若要等待Worker处理完成，我们就要使用sync.WaitGroup
+var wg sync.WaitGroup
+
+//从job 队列中获取一个job来处理
+func Worker(ctx context.Context, jobChan <-chan Job) {
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case job := <-jobChan:
+			fmt.Println("正在处理：", job.Name)
+			time.Sleep(1 * time.Second) //模拟业务耗时1s
+		}
+	}
+
+}
+
+func main() {
+
+	req := [5]string{
+		"a",
+		"b",
+		"c",
+		"d",
+		"e",
+	}
+
+	//接收请求
+	for _, name := range req {
+		job := Job{Name: name}
+		//入队
+		jobChan <- job
+
+	}
+	close(jobChan) //去掉注释，导致deadlock。因为range 一直在读。
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go Worker(ctx, jobChan)
+	time.Sleep(2 * time.Second) //worker中模拟耗时1s,这儿等待2后超时，执行cancel
+	cancel()
+
+	fmt.Printf("main end")
+
+}
 
 ~~~
+#### demo5 不使用context，停止worker工作，不再继续执行
+~~~go
+package main
 
+import (
+	"fmt"
+	"sync"
+	"time"
+)
+
+type Job struct {
+	Name string
+}
+
+//限制同时工作的job数量(即请求数量) 1000
+var jobChan = make(chan Job, 1000)
+var quit = make(chan struct{})
+
+//若要等待Worker处理完成，我们就要使用sync.WaitGroup
+var wg sync.WaitGroup
+
+//从job 队列中获取一个job来处理
+func Worker(jobChan <-chan Job, quit <-chan struct{}) {
+
+	for {
+		select {
+
+		case job := <-jobChan:
+			fmt.Println("正在处理：", job.Name)
+			time.Sleep(1 * time.Second) //模拟业务耗时1s
+		case val, ok := <-quit:
+			fmt.Println("收到取消操作信号", val, ok)
+
+			return
+		}
+
+	}
+
+}
+
+func main() {
+
+	req := [5]string{
+		"a",
+		"b",
+		"c",
+		"d",
+		"e",
+	}
+
+	//接收请求
+	for _, name := range req {
+		job := Job{Name: name}
+		//入队
+		jobChan <- job
+
+	}
+	close(jobChan) //去掉注释，导致deadlock。因为range 一直在读。
+
+	go Worker(jobChan, quit)
+	time.Sleep(2 * time.Second) //worker中模拟耗时1s,这儿等待2后超时，执行close(quit),此时worker中收到quit 信号
+	close(quit)
+	//quit <- struct{}{}
+	time.Sleep(1 * time.Second)
+	fmt.Println("main end")
+
+}
+
+~~~
 ## <span id="3">四、真正有控制力法(工作池)</span>
 
 
 >reference
 * [百万实践](https://blog.csdn.net/Jeanphorn/article/details/79018205)
 * [实践案例](https://blog.csdn.net/artong0416/article/details/77530843#%E7%9C%9F%E6%AD%A3%E6%8E%A7%E5%88%B6%E5%8D%8F%E7%A8%8B%E6%95%B0%E9%87%8F%E5%B9%B6%E5%8F%91%E6%89%A7%E8%A1%8C%E7%9A%84%E4%BB%BB%E5%8A%A1%E6%95%B0)
+* [Golang 任务队列策略](https://juejin.im/entry/5a1675315188254d28733457)
