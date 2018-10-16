@@ -58,7 +58,7 @@ func main() {
 
 ~~~
 
-## <span id="2">三、解决方案1--相对优雅法</span>
+## <span id="3">三、解决方案2--相对优雅法</span>
 
 ### 1.分析
  使用了缓冲队列一定程度上了提高了并发，但也是治标不治本，大规模并发只是推迟了问题的发生时间。当请求速度远大于队列的处理速度时，缓冲区很快被打满，后面的请求一样被堵塞了。
@@ -316,7 +316,7 @@ func WaitTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
 }
 
 ~~~
-#### demo4 使用context，停止worker工作，不再继续执行
+#### demo4:使用context，停止worker工作，不再继续执行
 ~~~go
 package main
 
@@ -383,7 +383,7 @@ func main() {
 }
 
 ~~~
-#### demo5 不使用context，停止worker工作，不再继续执行
+#### demo5:不使用context，停止worker工作，不再继续执行
 ~~~go
 package main
 
@@ -452,10 +452,161 @@ func main() {
 }
 
 ~~~
-## <span id="3">四、真正有控制力法(工作池)</span>
+## <span id="4">四、真正有控制力法(工作池job/worker模式)</span>
+相对优雅的方法不能控制goroutine数量，只是延后了请求的爆发。真正有控制力方法就是 job/worker模式。既控制排队任务job，又控制goroutine数量。
 
+~~~go
+package main
+
+import (
+	"fmt"
+	"strconv"
+	"time"
+)
+
+//待执行的工作者
+type Job struct {
+	Name string
+}
+
+//待执行工作者的队列channal
+var JobQueue chan Job
+
+//最大worker线程数
+var (
+	MaxWorker = 8
+)
+
+//执行任务的工作者单元
+type Worker struct {
+	WorkerPool chan chan Job //工作池(每个元素是一个job的私有channal)
+	JobChannel chan Job      //获取Job进行处理
+	quit       chan bool     //退出信号
+	no         int           //编号
+}
+
+//创建一个新worker
+func NewWorker(workerPool chan chan Job, no int) Worker {
+
+	return Worker{
+		WorkerPool: workerPool,
+		JobChannel: make(chan Job),
+		quit:       make(chan bool),
+		no:         no,
+	}
+}
+
+//循环  监听任务和结束信号
+func (w Worker) Start() {
+	go func() {
+		for {
+			//将JobChannel放入到工作池中.
+			w.WorkerPool <- w.JobChannel
+			fmt.Println("w.WorkerPool <- w.JobChannel", w.no)
+
+			select {
+			case job := <-w.JobChannel:
+
+				// 收到任务,处理job
+				fmt.Println("收到工作任务job,正在处理：", job.Name)
+
+			case <-w.quit:
+				// 收到退出信号
+				return
+			}
+		}
+	}()
+}
+
+// 停止信号
+func (w Worker) Stop() {
+	go func() {
+		w.quit <- true
+	}()
+}
+
+//调度中心
+type Dispatcher struct {
+	//工作者池
+	WorkerPool chan chan Job
+	//worker数量(开启线程数)
+	MaxWorkers int
+}
+
+//创建调度中心
+func NewDispatcher(maxWorkers int) *Dispatcher {
+	pool := make(chan chan Job, maxWorkers)
+	return &Dispatcher{WorkerPool: pool, MaxWorkers: maxWorkers}
+}
+
+//工作者池的初始化
+func (d *Dispatcher) Run() {
+	// starting n number of workers
+	for i := 1; i < d.MaxWorkers+1; i++ {
+		worker := NewWorker(d.WorkerPool, i)
+		worker.Start()
+	}
+	go d.dispatch()
+}
+
+//调度
+func (d *Dispatcher) dispatch() {
+	for {
+		select {
+		case job := <-JobQueue:
+
+			go func(job Job) {
+				//等待空闲worker (任务多的时候会阻塞这里)
+				//从WorkerPool中获取一个jobChannel
+				jobChannel := <-d.WorkerPool
+
+				// 将任务放到上述woker的私有任务channal中
+				// 向jobChannel中发送job,worker的Start()接收端会被唤醒,
+				jobChannel <- job
+
+			}(job)
+		}
+	}
+}
+
+func main() {
+	JobQueue = make(chan Job, 5)
+	dispatcher := NewDispatcher(MaxWorker)
+	//开启调度中心
+	dispatcher.Run()
+	time.Sleep(1 * time.Second)
+	//将job添加到队列
+	go addQueue()
+
+	time.Sleep(1000 * time.Second)
+}
+
+func addQueue() {
+	for i := 0; i < 10; i++ {
+		// 新建一个工作任务
+		job := Job{Name: "tom" + strconv.Itoa(i)}
+		// 任务放入任务队列channal
+		JobQueue <- job
+
+		time.Sleep(1 * time.Second)
+	}
+}
+
+/*
+一个任务的执行过程如下
+JobQueue <- job  新工作任务入队
+job := <-JobQueue: 调度中心收到任务
+jobChannel := <-d.WorkerPool 从工作者池取到一个工作者
+jobChannel <- job 任务给到工作者
+job := <-w.JobChannel 工作者取出任务
+{{1}} 执行任务
+w.WorkerPool <- w.JobChannel 工作者在放回工作者池
+*/
+
+~~~
 
 >reference
 * [百万实践](https://blog.csdn.net/Jeanphorn/article/details/79018205)
 * [实践案例](https://blog.csdn.net/artong0416/article/details/77530843#%E7%9C%9F%E6%AD%A3%E6%8E%A7%E5%88%B6%E5%8D%8F%E7%A8%8B%E6%95%B0%E9%87%8F%E5%B9%B6%E5%8F%91%E6%89%A7%E8%A1%8C%E7%9A%84%E4%BB%BB%E5%8A%A1%E6%95%B0)
 * [Golang 任务队列策略](https://juejin.im/entry/5a1675315188254d28733457)
+* [百万实践2](http://marcio.io/2015/07/handling-1-million-requests-per-minute-with-golang/)
