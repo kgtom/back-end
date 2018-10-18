@@ -10,8 +10,8 @@
 
 ## <span id="2">二、解决方案1--简单粗暴法</span>
 ### 1.分析
-简单粗暴，但无法控制创建goroutine数量，数量多了，内存也会暴涨，调度也会增多，从而影响性能。
-所以我们需要把控以下 开启goroutine数量。继续看方案2
+简单粗暴开启goroutine，但无法控制创建goroutine数量，数量多了，内存也会暴涨，调度也会增多，从而影响性能。
+所以我们需要把控开启goroutine的数量。继续看方案2
 ### 2.代码演示
 ~~~go
 package main
@@ -61,7 +61,7 @@ func main() {
 ## <span id="3">三、解决方案2--相对优雅法</span>
 
 ### 1.分析
- 使用了缓冲队列一定程度上了提高了并发，但也是治标不治本，大规模并发只是推迟了问题的发生时间。当请求速度远大于队列的处理速度时，缓冲区很快被打满，后面的请求一样被堵塞了。
+ 使用了**缓冲队列**一定程度上了提高了并发，但也是治标不治本，大规模并发只是推迟了问题的发生时间。当请求速度远大于队列的处理速度时，缓冲区很快被打满，后面的请求一样被堵塞了。
 ### 2.代码演示
 #### demo1:使用sync.WaitGroup保证每一个worker都处理完成，再退出主goroutine。
 ~~~go
@@ -453,13 +453,14 @@ func main() {
 
 ~~~
 ## <span id="4">四、真正有控制力法(工作池job/worker模式)</span>
-相对优雅的方法不能控制goroutine数量，只是延后了请求的爆发。真正有控制力方法就是 job/worker模式。既控制排队任务job，又控制goroutine数量。
+相对优雅的方法不能控制goroutine数量，只是延后了请求的爆发。真正有控制力方法就是 job/worker模式。既控制排队任务job，又控制开启goroutine数量。
 
 ~~~go
 package main
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -473,8 +474,10 @@ type Job struct {
 var JobQueue chan Job
 
 //最大worker线程数
+//最大job 队列数
 var (
-	MaxWorker = 8
+	MaxWorker = 5
+	MaxJobQueue  = 10
 )
 
 //执行任务的工作者单元
@@ -562,27 +565,27 @@ func (d *Dispatcher) dispatch() {
 
 				// 将任务放到上述woker的私有任务channal中
 				// 向jobChannel中发送job,worker的Start()接收端会被唤醒,
+				fmt.Println("当前协程数:", runtime.NumGoroutine())
 				jobChannel <- job
 
 			}(job)
 		}
 	}
 }
-
 func main() {
-	JobQueue = make(chan Job, 5)
+	JobQueue = make(chan Job, MaxJobQueue)
 	dispatcher := NewDispatcher(MaxWorker)
 	//开启调度中心
 	dispatcher.Run()
 	time.Sleep(1 * time.Second)
+
 	//将job添加到队列
 	go addQueue()
-
 	time.Sleep(1000 * time.Second)
 }
 
 func addQueue() {
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		// 新建一个工作任务
 		job := Job{Name: "tom" + strconv.Itoa(i)}
 		// 任务放入任务队列channal
