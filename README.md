@@ -17,6 +17,7 @@
 -   [ ] 网络(http、tpc/ip)
 -   [x] Redis
 -   [ ]  MySQL
+-   [ ]  做事优先级
 
 ## Golang 知识
 
