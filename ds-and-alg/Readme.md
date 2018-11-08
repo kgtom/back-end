@@ -1,4 +1,11 @@
-** data structures and algorithms  in golang **
+
+## 概述
+
+~~~
+ data structures and algorithms in golang
+~~~
+
+## Q&A
 
 ### 一、为什么要学习算法和数据结构
 编程的内功修炼，程序=数据结构+算法
