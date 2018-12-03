@@ -2,13 +2,14 @@ package main
 
 import (
 	"fmt"
+	"sync"
 )
 
 func main() {
 
-	arr := []int{6, 2, 7, 3, 8, 9}
+	arr := []int{6, 2, 7, 3, 9, 8, 1}
 
-	quickSort(arr, 0, len(arr)-1)
+	quickSort2(arr, 0, len(arr)-1)
 	fmt.Println("arr:", arr)
 
 }
@@ -44,7 +45,10 @@ func partition(arr []int, left, right int) int {
 		for arr[left] <= pivotVal && left < right {
 			left++
 		}
-		//在lfet下标临界点，左右交换。
+		if left == right {
+			break
+		}
+		//将大于中轴和小于中轴的两个值 交换。
 		arr[left], arr[right] = arr[right], arr[left]
 		//fmt.Println(" arr-partition:", arr)
 
@@ -52,10 +56,77 @@ func partition(arr []int, left, right int) int {
 
 	//将中轴数放在中间，左边的都比这个数小，右边的都比这个数大。一趟循环结束。
 	arr[left], arr[pivotIdx] = arr[pivotIdx], arr[left]
-	return left //返回临界点即中轴数
+	return left //返中轴数
 }
 
 //快排--迭代版
-func quickSort2(arr []int) {
+//使用栈，遵循先进后出，先将最开始左右边界 入栈，最后的左右边界 最后入栈且先出栈进行迭代，space O(log2n)
+//time: O(nlogn)
+func quickSort2(arr []int, l, r int) {
 
+	if len(arr) == 0 {
+		return
+	}
+	s := newStack()
+
+	//最开始两个边界
+	s.Push(r)
+	s.Push(l)
+
+	for l < r {
+
+		if s.IsEmpty() {
+			break
+		}
+		left := s.Pop()
+
+		right := s.Pop()
+
+		pivotIdx := partition(arr, left, right) //中轴数的下标
+
+		//获取新的边界，不断迭代
+		if left < pivotIdx-1 {
+			s.Push(pivotIdx - 1)
+			s.Push(left)
+		}
+		if right > pivotIdx+1 {
+			s.Push(right)
+			s.Push(pivotIdx + 1)
+		}
+	}
+
+}
+
+type Stack struct {
+	lock sync.Mutex
+	item []int
+}
+
+func newStack() *Stack {
+
+	return &Stack{
+		lock: sync.Mutex{},
+		item: make([]int, 0),
+	}
+}
+
+func (s *Stack) Push(elem int) {
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	s.item = append(s.item, elem)
+
+}
+func (s *Stack) Pop() int {
+	s.lock.Lock()
+	s.lock.Unlock()
+	if len(s.item) == 0 {
+		return 0
+	}
+	ret := s.item[len(s.item)-1]
+	s.item = s.item[:(len(s.item) - 1)]
+	return ret
+}
+func (s *Stack) IsEmpty() bool {
+	return len(s.item) == 0
 }
