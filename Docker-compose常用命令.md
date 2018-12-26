@@ -18,10 +18,7 @@ exit
 
 * docker-compose down   user-service              删除所有 user-service 容器、镜像
 
-
-
 * docker-compose restart user-service                    重新启动 user-service  容器
-
 
 * docker-compose build user-service                      构建镜像 user-service         
 
@@ -30,3 +27,10 @@ exit
 * docker-compose logs  user-service                      查看 user-service  的日志 
 
 * docker-compose logs -f user-service                    查看 user-service  的实时日志
+
+* docker-compose start nginx                    启动 user-service 容器
+
+* docker-compose rm nginx                       删除 user-service 容器（删除前需要先关闭容器）
+
+* docker-compose stop nginx                    停止 user-service 容器
+
