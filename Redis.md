@@ -138,3 +138,12 @@ Redis 中集合是通过哈希表实现的，所以添加，删除，查找的�
 (三)缓存击穿问题  
 (四)缓存的并发竞争问题  
 答案继续往下看。
+
+
+
+> reference：
+[cnblogs](https://www.cnblogs.com/rjzheng/p/9096228.html)
+[cnblogs](https://www.cnblogs.com/rjzheng/p/9096228.html)  
+[csdn](https://blog.csdn.net/fuyuwei2015/article/details/72870131)  
+[scienjus](http://www.scienjus.com/redis-use-case/)  
+[Cyc2018](https://github.com/CyC2018/Interview-Notebook/blob/master/notes/Redis.md#%E5%9B%9Bredis-%E4%B8%8E-memcached)
