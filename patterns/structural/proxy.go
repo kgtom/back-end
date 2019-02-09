@@ -10,42 +10,41 @@ import "fmt"
 
 //1.创建一个接口
 type OrderInfoer interface {
-
-	GetOrder(int)interface{}
+	GetOrder(int) interface{}
 }
+
 //2.创建接口的实现类
 
 type OrderInfo struct {
-	ID int64
+	ID   int64
 	Name string
 }
 
-func (order OrderInfo)GetOrder(id int )interface{}  {
+func (order OrderInfo) GetOrder(id int) interface{} {
 	//todo form db getOrderById
 	return order
 }
+
 //3.创建实现类的代理类
 
 type OrderProxy struct {
 	Order OrderInfoer
 }
 
-func (proxy OrderProxy)GetOrder(id int )interface{}  {
+func (proxy OrderProxy) GetOrder(id int) interface{} {
 
 	return proxy.Order.GetOrder(id)
 }
-func NewOrderProxy(order OrderInfoer)OrderInfoer {
-	return &OrderProxy{Order:order}
+func NewOrderProxy(order OrderInfoer) OrderInfoer {
+	return &OrderProxy{Order: order}
 }
 
-func  main() {
+func main() {
 
+	//4.请求时，使用代理类获取接口实现类的数据
 
-//4.请求时，使用代理类获取接口实现类的数据
-
-proxy:=NewOrderProxy(&OrderInfo{ID:1,Name:"d001"})
-
-ret:=proxy.GetOrder(1)
-fmt.Println("ret:",ret)
+	proxy := NewOrderProxy(&OrderInfo{ID: 1, Name: "d001"})
+	ret := proxy.GetOrder(1)
+	fmt.Println("ret:", ret)
 
 }
