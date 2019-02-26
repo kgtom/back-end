@@ -27,4 +27,4 @@ c.实践中遇到问题：分布式数据不一致问题，使用事后补偿、
 
 9.说一下 consul 使用？raft的理解？
 3台阿里云服务器，部署3个agent，server部署3-5个
-多个server之中需要选举一个leader, 选举过程基于Raft协议实现的。
+多个server之中需要选举一个leader, 选举过程基于Raft协议实现的，Paxos和Raft目的都是都是为了实现Consensus一致性这个目标。
