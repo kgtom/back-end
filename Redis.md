@@ -51,11 +51,12 @@
 
 #### (一)String
 
-最常规的set/get操作，value可以是String也可以是数字。  
+最常规的set/get操作，value可以是String也可以是数字.  
 **场景**：
 
-*   **缓存功能**：(序列化用户信息、详情页面信息）
+*   **缓存功能**：
 *   结合 **incr命令**做 [计数、限流api功能](http://www.redis.cn/commands/incr.html)
+*   存储图片或者序列化的数据
 
 #### (二)hash
 
@@ -63,9 +64,9 @@
 
 **场景**：
 
-*   做**用户登录**的时候，就是用这种数据结构存储用户信息，以cookieId作为key，设置30分钟为缓存过期时间，能很好的模拟出类似session的效果。
+*   做**用户登录**的时候，就是用这种数据结构存储用户信息，以 userId 作为key，value 用户信息，设置30分钟为缓存过期时间，能很好的模拟出类似session的效果。
     
-*   每条微博都有点赞数、评论数、转发数和浏览数四条属性，这时用`hash`进行计数会更好，将该计数器的 key 设为`weibo:weibo_id`，`hash`的 field 为`like_number`、`comment_number`、`forward_number`和`view_number`，在对应操作后通过**hincrby**使`hash 中`的 field 自增
+*   每篇文章 都有点赞数、评论数、转发数和浏览数四条属性，这时用`hash`进行计数会更好，将该计数器的 key 设为`article_id`，`hash`的 field 为`like_number`、`comment_number`、`forward_number`和`view_number`，在对应操作后通过**hincrby**使`hash 中`的 field 自增
     
 
 #### (三)list
@@ -76,9 +77,9 @@
 
 *   **做简单的消息队列的功能**。
     
-*   **做基于redis的分页功能**，性能极佳，用户体验好。
+*   **做秒杀系统订单列表能**，性能极佳，用户体验好。
     
-*   `list`作为双向链表，不光可以作为队列使用。如果将它用作栈便可以成为一个公用的时间轴。当用户发完微博后，都通过`lpush`将它存放在一个 key 为`LATEST_WEIBO`的`list`中，之后便可以通过`lrange`取出当前最新的微博。
+*   `list`作为双向链表，公用的时间轴。如用户大事件记录。
     
 
 #### (四)set
