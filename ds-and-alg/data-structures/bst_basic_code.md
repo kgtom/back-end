@@ -62,12 +62,41 @@ func main() {
 	//后序 迭代版
 	retPost := postOrderTraverse2(tree)
 	fmt.Println("retPost-recursive:", retPost)
-	//层序=前序 ret: [1 2 4 5 3 6 7]
+	//层序(迭代版) ret: [1 2 4 5 3 6 7]
 	retLevel := levelTraverse(tree)
 	fmt.Println("retLevel:", retLevel)
+	
+	//层序(递归版) ret: [1 2 4 5 3 6 7]
+	retLevel := levelIterative(tree)
+	fmt.Println("levelIterative:", retLevel)
+	
 	fmt.Println("end")
 
 }
+
+var ret []int
+
+func levelIterative(root *TreeNode) []int {
+	ret = make([]int, 0)
+	if root == nil {
+		return ret
+	}
+	dfsHandler(root, 0)
+	return ret
+}
+
+func dfsHandler(node *TreeNode, level int) {
+	if node == nil {
+		return
+	}
+	if len(ret) < level+1 {
+		//result = append(result, 0)
+	}
+	ret = append(ret, node.Val)
+	dfsHandler(node.Left, level+1)
+	dfsHandler(node.Right, level+1)
+}
+
 
 // TreeNode
 type TreeNode struct {
