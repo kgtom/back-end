@@ -367,6 +367,23 @@ func levelIterative(root *TreeNode) []int {
 
 ~~~
 
+结果：
+~~~
+
+start
+retPreIterative: [1 2 4 5 3 6 7]
+preOrderRecursive [1 2 4 5 3 6 7]
+
+retInIterative: [4 2 5 1 6 3 7]
+retIn-recursive: [4 2 5 1 6 3 7]
+
+retPostIterative: [4 5 2 6 7 3 1]
+retPost-recursive: [4 5 2 6 7 3 1]
+retLevel: [1 2 3 4 5 6 7]
+levelRecursive: [[1] [2 3] [4 5 6 7]]
+end
+~~~
+
 ## <span id="2"> 二.数组转换树</span>
 ~~~go
 
