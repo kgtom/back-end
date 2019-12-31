@@ -41,43 +41,44 @@ func main() {
 
 	fmt.Println("start")
 	//前序 中左右 ret: [1 2 4 5 3 6 7]
-	retPreIterative := preOrderTraversal(tree)
+	retPreIterative := preOrderIterative(tree)
 	fmt.Println("retPreIterative:", retPreIterative)
-	retPre := preOrderTraversal2(tree)
-	fmt.Println("retPre-recursive:", retPre)
+
+	retPre := preOrderRecursive(tree)
+	fmt.Println("preOrderRecursive", retPre)
 
 	fmt.Println()
 	//中序 迭代版 左中右 ret: [4 2 5 1 6 3 7]
-	retInIterative := inOrderTraversal(tree)
+	retInIterative := inOrderIterative(tree)
 	fmt.Println("retInIterative:", retInIterative)
 	//中序 递归版
-	retIn := inOrderTraversal2(tree)
+	retIn := inOrderRecursive(tree)
 	fmt.Println("retIn-recursive:", retIn)
 
 	fmt.Println()
 
-	//后序 左右中 ret: [1 2 4 5 3 6 7]
-	retPostIterative := postOrderTraverse(tree)
+	//后序迭代版 左右中 ret: [1 2 4 5 3 6 7]
+	retPostIterative := postOrderIterative(tree)
 	fmt.Println("retPostIterative:", retPostIterative)
-	//后序 迭代版
-	retPost := postOrderTraverse2(tree)
+	//后序 递归版
+	retPost := postOrderRecursive(tree)
 	fmt.Println("retPost-recursive:", retPost)
+
 	//层序(迭代版) ret: [1 2 4 5 3 6 7]
-	retLevel := levelTraverse(tree)
-	fmt.Println("retLevel:", retLevel)
-	
-	//层序(递归版) ret: [1 2 4 5 3 6 7]
 	retLevel := levelIterative(tree)
-	fmt.Println("levelIterative:", retLevel)
-	
+	fmt.Println("retLevel:", retLevel)
+
+	//层序(递归版) ret: [1 2 3 4 5 6 7]
+	retLevel2 := levelRecursive(tree)
+	fmt.Println("levelRecursive:", retLevel2)
 	fmt.Println("end")
 
 }
 
-var ret []int
+var ret [][]int
 
-func levelIterative(root *TreeNode) []int {
-	ret = make([]int, 0)
+func levelRecursive(root *TreeNode) [][]int {
+	ret = make([][]int, 0)
 	if root == nil {
 		return ret
 	}
@@ -90,13 +91,14 @@ func dfsHandler(node *TreeNode, level int) {
 		return
 	}
 	if len(ret) < level+1 {
-		//result = append(result, 0)
+		ret = append(ret, make([]int, 0))
 	}
-	ret = append(ret, node.Val)
+	//ret = append(ret, node.Val)
+	ret[level] = append(ret[level], node.Val)
+
 	dfsHandler(node.Left, level+1)
 	dfsHandler(node.Right, level+1)
 }
-
 
 // TreeNode
 type TreeNode struct {
@@ -136,8 +138,53 @@ func (s *Stack) Pop() *TreeNode {
 	return ret
 }
 
+type Queue struct {
+	queue []*TreeNode
+	len   int
+	lock  *sync.Mutex
+}
+
+func NewQueue() *Queue {
+	queue := &Queue{}
+	queue.queue = make([]*TreeNode, 0)
+	queue.len = 0
+	queue.lock = new(sync.Mutex)
+	return queue
+}
+
+func (q *Queue) Len() int {
+
+	return q.len
+}
+
+func (q *Queue) IsEmpty() bool {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	return q.len == 0
+}
+
+func (q *Queue) Push(el *TreeNode) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	q.queue = append(q.queue, el)
+	q.len++
+
+}
+
+func (q *Queue) Pop() (el *TreeNode) {
+
+	if q.IsEmpty() {
+		return &TreeNode{}
+	}
+	q.lock.Lock()
+	defer q.lock.Unlock()
+	el, q.queue = q.queue[0], q.queue[1:]
+	q.len--
+	return el
+}
+
 //前序 迭代版：(中左右)时间复杂度O(n) 空间复杂度(n)
-func preOrderTraversal(tree *TreeNode) []int {
+func preOrderIterative(tree *TreeNode) []int {
 
 	s := NewStack()
 
@@ -169,21 +216,22 @@ func preOrderTraversal(tree *TreeNode) []int {
 }
 
 //前序 递归版
-func preOrderTraversal2(root *TreeNode) []int {
-	var ret []int
+func preOrderRecursive(root *TreeNode) []int {
+	ret := []int{}
 	if root == nil {
 		return ret
 	}
 	//fmt.Println(root.Val)
 	ret = append(ret, root.Val)
-	ret = append(ret, preOrderTraversal2(root.Left)...)
-	ret = append(ret, preOrderTraversal2(root.Right)...)
+	leftRet := preOrderRecursive(root.Left)
+	ret = append(ret, leftRet...)
+	ret = append(ret, preOrderRecursive(root.Right)...)
 
 	return ret
 }
 
 //  中序 迭代版 ：(左中右)时间复杂度O(n) 空间复杂度(n)
-func inOrderTraversal(root *TreeNode) []int {
+func inOrderIterative(root *TreeNode) []int {
 	var ret []int
 
 	if root == nil {
@@ -218,22 +266,22 @@ func inOrderTraversal(root *TreeNode) []int {
 }
 
 //中序 递归版
-func inOrderTraversal2(root *TreeNode) []int {
+func inOrderRecursive(root *TreeNode) []int {
 	var ret []int
 
 	if root == nil {
 		return ret
 	}
 
-	ret = append(ret, inOrderTraversal2(root.Left)...)
+	ret = append(ret, inOrderRecursive(root.Left)...)
 	ret = append(ret, root.Val)
-	ret = append(ret, inOrderTraversal2(root.Right)...)
+	ret = append(ret, inOrderRecursive(root.Right)...)
 
 	return ret
 }
 
 //后序 迭代版 左右中
-func postOrderTraverse(root *TreeNode) []int {
+func postOrderIterative(root *TreeNode) []int {
 	var ret []int
 
 	if root == nil {
@@ -275,45 +323,48 @@ func postOrderTraverse(root *TreeNode) []int {
 }
 
 //后序 递归版
-func postOrderTraverse2(root *TreeNode) []int {
+func postOrderRecursive(root *TreeNode) []int {
 	var ret []int
 	if root == nil {
 		return ret
 	}
 
-	ret = append(ret, postOrderTraverse2(root.Left)...)
+	ret = append(ret, postOrderRecursive(root.Left)...)
 
-	ret = append(ret, postOrderTraverse2(root.Right)...)
+	ret = append(ret, postOrderRecursive(root.Right)...)
 	ret = append(ret, root.Val)
 	//fmt.Println(root.Val)
 
 	return ret
 }
 
-//层序遍历(实际就是前序遍历) 迭代版，从顶而下，每一层 从左到右。
-func levelTraverse(root *TreeNode) []int {
+//层序遍历 迭代版，实际是 Breadth First Search,广度优先算法，从顶而下，每一层 从左到右。
+func levelIterative(root *TreeNode) []int {
 
 	var ret []int
 
-	s := NewStack()
+	//s := NewStack()
+	s := NewQueue() //使用队列，
 	s.Push(root)
 	for {
 
 		curr := s.Pop()
-		if curr == nil {
+		if curr == nil || curr.Val == 0 {
 			break
 		}
 		ret = append(ret, curr.Val)
-		//先左后右，所以现在push right 再push left
-		if curr.Right != nil {
-			s.Push(curr.Right)
-		}
+		//先左后右，使用队列：所以现在push left 再push right
+
 		if curr.Left != nil {
 			s.Push(curr.Left)
+		}
+		if curr.Right != nil {
+			s.Push(curr.Right)
 		}
 	}
 	return ret
 }
+
 ~~~
 
 ## <span id="2"> 二.数组转换树</span>
