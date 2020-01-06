@@ -79,7 +79,5 @@ ALL < index < range ~ index_merge < ref < eq_ref < const < system
 * hash:等值查找（=、 <、>、in）为主，Hash索引是更高效的选择,O(1)
 
 
->reference
-[wx](https://mp.weixin.qq.com/s/zA9KvCkkte2mTWTcDv7hUg)
 
 
