@@ -79,5 +79,8 @@ ALL < index < range ~ index_merge < ref < eq_ref < const < system
 * hash:等值查找（=、 <、>、in）为主，Hash索引是更高效的选择,O(1)
 
 
+>reference
+[wx](http://39.106.173.209:88/mysql-p-l/)
+
 
 
