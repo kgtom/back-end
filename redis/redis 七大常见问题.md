@@ -27,6 +27,44 @@
   - 1.分布式锁，获取到锁再去更新
   - 2.使用lua，将set get 一个原子操作
   - 3.类似于db乐观锁，增加时间戳version，比较get时获取的version和set时的version大小
-### 六、热key
 
-### 七、大key
+### 六、热key
+* 背景：单机或者一主一从redis不需要考虑热key，因为无论怎样处理，最终还是在原来redis上处理。现在只针对集群redis热key的问题。例如：在大促、秒杀场景下某个热key，会导致集群中某个机器访问频繁，集群性能不均。
+* 解决方案：
+  - 不想所有请求在一台机器，那么均匀的打散到其它机器上，如何均匀呢？假如集群数量N
+
+~~~
+
+
+const M = N * 2
+randomKey = GenRandomNum(0, M)
+bakHotKey = hotKey + "_" + randomKey
+// 拉取备份的bakHotKey
+data := redis.GET(bakHotKey)
+if data ==""{
+    // 假如bakHotKey失效，再尝试拉取hotKey
+    data = redis.GET(hotKey)
+    if data == "" {
+        // hotKey也失效，从DB拉取
+        data = GetFromDB()
+        // 写入主redis数据
+        redis.SET(hotKey, data, expireTime)
+        // 写入备份redis数据,加上随机时间，避免缓存雪崩
+        redis.SET(bakHotKey, data, expireTime + GenRandomNum(0,10))
+    } else {
+        // 否则只需要直接写入bakHotKey，不需访问DB
+         redis.SET(bakHotKey, data, expireTime + GenRandomNum(0,10))
+    }
+} 
+
+~~~
+
+
+  
+ ### 七、大key 
+ * 判断大key的标准：字符串类型超过10k，其它类型元素过大，例如list超过10240
+ * 大key带来影响：占用内存大、占用网络资源、容易造成redis堵塞
+ * 解决方案：阿里云命令,使用scan方式寻找大key,不会堵塞redis。
+  ```
+  redis-cli -h{ip} -p{port} bigkeys
+  ```
