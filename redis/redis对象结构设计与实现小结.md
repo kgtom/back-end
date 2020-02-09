@@ -117,13 +117,17 @@ int 、raw、embstr,后两者实际 动态字符串(SDS)
  * skiplist 和avl 适合范围查找O(logN)，单个key查找使用hash O(1)
  * 范围查找：avl先找起点，然后中序再找，skiplist找到起点后，遍历链表即可
  * 实现复杂度：avl的插入和删除节点会引发树的调整，逻辑复杂，skiplist只需要修改相邻指针就可以
- * 内存：avl 两个节点树 ，ziplist 一个链表指针
+ * 内存：avl 两个节点树 ，skiplist 一个链表指针
  * skiplist 底层既有dict(查询zset的score使用 o(1))，也有两个有序链表，方便根据范围查找查找，如 zrange zrevrange 等
 
+## redis 为什么使用skiplist做索引而不使用B+树呢？
+
+* 因为B+树的原理是：叶子节点存储数据，非叶子节点存储索引，B+树的每个节点可以存储多个关键字，它将节点大小设置为磁盘页的大小，充分利用了磁盘预读的功能。每次读取磁盘页时就会读取一整个节点,每个叶子节点还有指向前后节点的指针，为的是最大限度的降低磁盘的IO。
+* redis 的数据在内存中读取耗费的时间是从磁盘的IO读取的百万分之一，从内存中读取数据而不涉及磁盘IO,索引使用skiplist
 
 ### ziplist设计
 * 特殊编码的，各个数据项在一个连续的内存空间，设计目标就是为了提高存储效率，O(1)复杂度push和pop，比如：zset中zscore,list中pop,hash中hget
-* 缺点：当数据变动时，内存会重新分配；当数据多，ziplist转成dict 或者linkedlist，查找需要遍历,比如 list中lrange 
+* 缺点：当数据变动时，内存会重新分配；当数据多，ziplist转成dict 、linkedlist、skiplist，查找需要遍历,比如 list中lrange 
 
 
 > reference
