@@ -244,24 +244,31 @@ select id,name from user where match(name) against('tom')
 * lock 分类
  - 行级锁:共享锁 S Lock 和排它锁 X Lock
  - 表级锁:意向共享锁 IS Lock和意向排它锁 IX Lock,假如给某一行上X锁，则该行对应的表和页都上IX锁。如果加锁之前该表已有S锁，则需等待其释放后再加锁，即：IX与S锁不兼容，需等待其释放再用
- - 一致性非锁定锁：如果读取的行正在做update、delete操作，此时读取不需要等待行上的X锁，读取该行之前版本的快照数据。一个行的快照版本较多，则称为行的多版本技术。不同事务隔离级别读取版本不同，在READ COMIMTED 读取最新快照；在默认REPEATABLE READ 读取事务开始时的行数据版本。
+ - 一致性非锁定读：如果select读取的行正在做update、delete操作，此时读取不需要等待行上的X锁，读取该行之前版本的快照数据。一个行的快照版本较多，则称为行的多版本技术MVCC(multi version concurrency control)。不同事务隔离级别读取版本不同，在READ COMIMTED 读取最新快照；在默认REPEATABLE READ 读取事务开始时的行数据版本。
  - 一致性锁定读：包括 select ...for update 和select ...lock in share mode 
  - 自增长锁：自增长值，通过 AUTO-INC locking，锁表，不是事务结束释放而是执行插入sql后立刻释放
  ~~~
  select max(auto_incr_col) from t for update
  ~~~
 ### 2.行锁的三种算法
-* Record lock 单个行记录上的锁：锁定索引记录，若没有索引，则隐式锁住主键
+* Record lock 单个行记录上的锁：锁定索引记录，若没有索引，则隐式锁住主键。
 ~~~
 -- id 主键,此时如果有另一个事务操作id=3的记录，则需要等待正在进行事务commit或者rollback
 start transaction
 select * from t where id=3 for update 
 update t set xxx=xxxx where id=3
+
+-- 如果where条件没有主键，只是普通字段col查询，一定给col字段加上索引，不然会锁表
+update t set a=xx ,b=xxx where col=xxxx
 ~~~
 
-* Gap lock 间隙锁：锁定一个范围，但不包括记录本身，该锁母的：防止同一个事务的两次读取的数据不同，出现幻读的情况。两种方式关闭gap lock:innodb_locks_unsafe_for_binlog=1和隔离级别READ COMMITED
+* Gap lock 间隙锁：锁定一个范围，但不包括记录本身
+~~~
+-- 在id为(1,10)的索引区间上加Gap Lock。
+select * from t where id>1 and id<10 for update
+~~~
 
-* Next-key lock ：record lock+gap lock，解决phantom problem幻读的问题，注意左开右闭区间。
+* Next-key-lock ：record lock+gap lock，解决phantom problem幻读的问题，注意左开右闭区间。
 ~~~
 --  当查询的列是主键或者唯一索引的时候，next-key lock 降级为 Record lock
  id 为t 表主键，则执行以下sql不需要等待锁释放
@@ -272,21 +279,31 @@ update t set xxx=xxxx where id=3
  a 是t表主键，b为t表普通索引
  b在t中有 1，2，3，4，5
  正在执行：select * from t where b=3 for update ，
- 则下面sql 不执行了,因为锁定区间（1,3）和(3,5)
+ 则下面sql 不执行了,因为锁定区间（1,3）和[3,5)
  insert into t (8,2)
- insert into t (8,5)
- 
- -- ？补充区间的案例
+ insert into t (9,5)
 ~~~
 ### 3.锁问题
 通过锁机制可以实现事务的隔离性，使事务可以并发工作。锁提高了并发，但带来了三种潜在问题：
 * 脏读 Dirty Read:不同事务之间，当前事务读取到另一个事务未提交的数据(脏数据)，解决 REPEATABLE READ 级别
 * 不可重复的读即幻读：不同事务之间，当前事务读取到了另一个事务已提交的数据，解决方案next-key lock
-* 丢失更新：一个事务的更新操作会被另一个事务更新操作覆盖，解决方案：将事务处理串行，不要并行做，即加排它锁X。
+* 丢失更新：一个事务的更新操作会被另一个事务更新操作覆盖，解决方案：将事务处理串行，不要并行做，即加排它锁X或者业务代码层使用分布式锁
 ### 4.堵塞与死锁
 * 堵塞：等待另一个事务释放锁，再执行该事务。innodb_lock_wait_timeout 等待时间，默认50s
 * 死锁：两个或两个以上事务争夺资源造成相互等待现象。解决方案 超时机制和wait-for graph 等待图
 
+### 5.什么场景使用锁？
+* insert、update、delete 需要加排他性X锁
+* select 使用非一致性读锁，读取MVCC数据
+* select  for update 排它锁X
+* select   lock in share mode 共享锁S,其它事务可以加S,不可以加X,加X必须等到S释放后
+~~~
+-- 查看表的加锁情况: 
+select * from information_schema.INNODB_LOCKS; 
+-- 事务状态：
+select * from information_schema.INNODB_TRX
+
+~~~
 ## <span id="7">第七章 事务 </span>
 
 ### 1.事务的分类
@@ -296,12 +313,14 @@ update t set xxx=xxxx where id=3
 * 分布式事务：通过事务管理器管理不同事务，遵循ACID,要么全部成功，要么全部回滚。
 ### 2.事务的实现
 * redo log重做日志:提交事务修改的页操作，保证事务原子性和持久性。还包括 redo log buffer ，两者之间同步详见 第三章--innodb存储文件
-* undo log:保证事务的一致性，当事务执行失败或者回滚操作时，回滚行记录到某个特定版本。
+* undo log:回滚日志
+   - 保证事务的一致性，当事务执行失败或者回滚操作时，回滚行记录到某个特定版本。
+   - MVCC的实现。当前用户读取一行记录时，该记录被其它事务占用，当前用户事务可以读取通过undo读取之前的行版本信息，以此实现非锁定读取。
 
 总结：innodb对数据库的修改，不仅产生redo log ，还要产生undo log。
 ### 3.事务的隔离级别
-* Serializable（串行化）：串行化读，每次读都需要获取表级锁，读写会堵塞；
-* Repeatable read（可重复读）：可避免脏读、不可重复读(幻读)的发生；
+* Serializable（串行化）：串行化，事务一个一个的执行，读写会堵塞；
+* Repeatable read（可重复读）：可避免脏读，使用next-lock-key算法解决不可重复读(幻读)的发生；
 * Read committed（读已提交）：可避免脏读的发生，不能避免幻读即能读取到其它事务已提交的数据；
 * Read uncommitted（读未提交）：允许脏读；级别最低
 隔离级别由高到低，级别越高，执行效率越低
@@ -314,7 +333,7 @@ update t set xxx=xxxx where id=3
 
 ### 6.不好的事务习惯
 
-
+* 大事务或者长事务
 
 
 
