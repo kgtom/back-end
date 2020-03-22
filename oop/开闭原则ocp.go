@@ -1,5 +1,5 @@
 /**
- * @Author: weizhen
+ * @Author: tom
  * @Date time: 2020-03-22 18:39
  * @description:
  * golang使用interface 实现开闭原则、依赖倒置原则
